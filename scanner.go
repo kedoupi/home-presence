@@ -276,10 +276,20 @@ func scanNetwork(subnetStr string) []Device {
 
 // --- Scan loop ---
 
-func reportToCentral(devices []Device) {
+func reportToCentral() {
 	if *central == "" {
 		return
 	}
+	// Send classified device data from deviceStore (not raw scan results)
+	mu.RLock()
+	var devices []Device
+	for _, dev := range deviceStore {
+		if dev.Home == *homeName && dev.Online {
+			devices = append(devices, *dev)
+		}
+	}
+	mu.RUnlock()
+
 	report := DeviceReport{
 		Home:      *homeName,
 		Timestamp: time.Now().UnixMilli(),
@@ -372,5 +382,5 @@ func runScan(subnetStr string) {
 
 	updateStats()
 	saveDevices()
-	reportToCentral(devices)
+	reportToCentral()
 }

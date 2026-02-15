@@ -26,10 +26,29 @@ func startServer(ctx context.Context) {
 			return
 		}
 		log.Printf("Received report from %s: %d devices", report.Home, len(report.Devices))
+		markAllOffline(report.Home)
 		for _, d := range report.Devices {
-			initDevice(d.MAC, d.IP, report.Home)
+			mu.Lock()
+			dev := getOrCreateDeviceLocked(d.MAC, d.IP, report.Home)
+			if d.Hostname != "" {
+				dev.Hostname = d.Hostname
+			}
+			if d.Name != "" && dev.Name == "" {
+				dev.Name = d.Name
+			}
+			if d.Vendor != "" && dev.Vendor == "" {
+				dev.Vendor = d.Vendor
+			}
+			if d.Category != "" && !dev.ManualCategory {
+				dev.Category = d.Category
+			}
+			if d.DeviceType != "" {
+				dev.DeviceType = d.DeviceType
+			}
+			mu.Unlock()
 		}
 		updateStats()
+		saveDevices()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
