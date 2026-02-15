@@ -65,7 +65,7 @@ function ipToSubnet(ip, mask) {
  */
 function parseArpScan(output) {
   const devices = [];
-  const lines = output.split('\\n');
+  const lines = output.split('\n');
   
   for (const line of lines) {
     // 跳过空行和标题行

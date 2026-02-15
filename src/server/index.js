@@ -21,7 +21,6 @@ app.use(express.static(path.join(__dirname, '../../public')));
 
 // 中间件：初始化
 app.use((req, res, next) => {
-  // 确保所有家庭都已初始化
   const homes = getHomes();
   for (const homeName in homes) {
     deviceState.initHome(homeName);
@@ -42,7 +41,7 @@ app.post('/api/report', async (req, res) => {
     return res.status(400).json({ error: 'Invalid request' });
   }
   
-  console.log(`📥 收到 ${home} 上报: ${devices.length} 个设备`);
+  console.log('📥 收到 ' + home + ' 上报: ' + devices.length + ' 个设备');
   
   // 更新状态
   const changes = deviceState.updateDevices(home, devices);
@@ -76,7 +75,6 @@ app.get('/api/devices', (req, res) => {
   const stats = deviceState.getHomeStats();
   const configDevices = getDevices();
   
-  // 合并配置中的设备信息
   const result = devices.map(d => {
     const config = configDevices[d.mac] || {};
     return {
@@ -117,14 +115,12 @@ app.put('/api/devices/:mac', (req, res) => {
   const mac = req.params.mac.toUpperCase();
   const { name, owner, known, home } = req.body;
   
-  // 更新内存状态
   const device = deviceState.updateDeviceInfo(home || '家庭A', mac, { name, owner, known });
   
   if (!device) {
     return res.status(404).json({ error: 'Device not found' });
   }
   
-  // 持久化到配置
   const devices = getDevices();
   devices[mac] = {
     ...devices[mac],
@@ -156,13 +152,12 @@ app.get('/api/config', (req, res) => {
  * 主页面
  */
 app.get('/', (req, res) => {
-  res.send(`
-<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🏠 家庭设备监控</title>
+  <title>家庭设备监控</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -237,7 +232,6 @@ app.get('/', (req, res) => {
     
     .empty { text-align: center; padding: 40px; color: #999; }
     
-    /* Modal */
     .modal {
       display: none;
       position: fixed;
@@ -276,14 +270,13 @@ app.get('/', (req, res) => {
 </head>
 <body>
   <div class="container">
-    <h1>🏠 家庭设备监控</h1>
+    <h1>家庭设备监控</h1>
     
     <div class="stats" id="stats"></div>
     
     <div id="deviceList"></div>
   </div>
   
-  <!-- 编辑弹窗 -->
   <div class="modal" id="editModal">
     <div class="modal-content">
       <h3>编辑设备</h3>
@@ -323,57 +316,46 @@ app.get('/', (req, res) => {
       
       currentDevices = devices;
       
-      // 渲染统计
       const statsEl = document.getElementById('stats');
       statsEl.innerHTML = homes.map(home => {
         const s = stats[home] || { online: 0, known: 0 };
-        return \`
-          <div class="stat-card">
-            <div class="home-name">\${home}</div>
-            <div class="count">\${s.online}</div>
-            <div class="label">在线 / 共 \${s.total} 台</div>
-          </div>
-        \`;
+        return '<div class="stat-card">' +
+          '<div class="home-name">' + home + '</div>' +
+          '<div class="count">' + s.online + '</div>' +
+          '<div class="label">在线 / 共 ' + s.total + ' 台</div>' +
+        '</div>';
       }).join('');
       
-      // 渲染设备列表
       const listEl = document.getElementById('deviceList');
       listEl.innerHTML = homes.map(home => {
         const homeDevices = devices.filter(d => d.home === home);
         const onlineDevices = homeDevices.filter(d => d.online);
         
         if (homeDevices.length === 0) {
-          return \`
-            <div class="home-section">
-              <h2>\${home}</h2>
-              <div class="empty">暂无设备数据</div>
-            </div>
-          \`;
+          return '<div class="home-section"><h2>' + home + '</h2><div class="empty">暂无设备数据</div></div>';
         }
         
-        return \`
-          <div class="home-section">
-            <h2>\${home} <small style="font-weight:normal;color:#666">(\${onlineDevices.length} 在线)</small></h2>
-            <div class="device-list">
-              \${homeDevices.map(d => \`
-                <div class="device-card \${d.online ? 'online' : 'offline'} \${!d.known ? 'unknown' : ''}" 
-                     onclick="editDevice('\${d.mac}')">
-                  <div class="device-header">
-                    <span class="device-name">\${d.name || '未知设备'}</span>
-                    <span class="device-status \${d.online ? 'status-online' : 'status-offline'}">
-                      \${d.online ? '在线' : '离线'}
-                    </span>
-                  </div>
-                  <div class="device-info">
-                    <div>IP: \${d.ip}</div>
-                    <div>MAC: \${d.mac}</div>
-                    \${d.owner ? \`<div class="device-owner">\${d.owner}</div>\` : ''}
-                  </div>
-                </div>
-              \`).join('')}
-            </div>
-          </div>
-        \`;
+        let cards = homeDevices.map(d => {
+          const statusClass = d.online ? 'online' : 'offline';
+          const statusText = d.online ? '在线' : '离线';
+          const unknownClass = !d.known ? 'unknown' : '';
+          const name = d.name || '未知设备';
+          const ownerHtml = d.owner ? '<div class="device-owner">' + d.owner + '</div>' : '';
+          
+          return '<div class="device-card ' + statusClass + ' ' + unknownClass + '" onclick="editDevice(\\'' + d.mac + '\\')">' +
+            '<div class="device-header">' +
+              '<span class="device-name">' + name + '</span>' +
+              '<span class="device-status status-' + (d.online ? 'online' : 'offline') + '">' + statusText + '</span>' +
+            '</div>' +
+            '<div class="device-info">' +
+              '<div>IP: ' + d.ip + '</div>' +
+              '<div>MAC: ' + d.mac + '</div>' +
+              ownerHtml +
+            '</div>' +
+          '</div>';
+        }).join('');
+        
+        return '<div class="home-section"><h2>' + home + ' <small style="font-weight:normal;color:#666">(' + onlineDevices.length + ' 在线)</small></h2><div class="device-list">' + cards + '</div></div>';
       }).join('');
     }
     
@@ -398,7 +380,7 @@ app.get('/', (req, res) => {
       const owner = document.getElementById('editOwner').value;
       const home = document.getElementById('editHome').value;
       
-      await fetch(\`/api/devices/\${editingMac}\`, {
+      await fetch('/api/devices/' + editingMac, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, owner, known: !!owner, home })
@@ -408,15 +390,13 @@ app.get('/', (req, res) => {
       loadData();
     }
     
-    // 初始加载
     loadData();
-    
-    // 每10秒刷新
     setInterval(loadData, 10000);
   </script>
 </body>
-</html>
-  `);
+</html>`;
+  
+  res.send(html);
 });
 
 // ==================== 定时任务 ====================
@@ -432,7 +412,8 @@ schedule.scheduleJob('0 * * * *', async () => {
 
 function main() {
   const config = loadConfig();
-  const { host, port } = config.server;
+  const port = config.server.port || 3000;
+  const host = config.server.host || '0.0.0.0';
   
   // 初始化 Telegram
   telegram.initTelegram();
@@ -444,7 +425,7 @@ function main() {
   }
   
   app.listen(port, host, () => {
-    console.log(\`🏠 中央服务启动: http://\${host}:\${port}\`);
+    console.log('🏠 中央服务启动: http://' + host + ':' + port);
     console.log('   Web UI: http://' + host + ':' + port);
   });
 }

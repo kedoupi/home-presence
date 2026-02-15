@@ -47,9 +47,9 @@ async function notifyOnline(device) {
   const owner = device.owner ? `(${device.owner})` : '';
   
   await sendMessage(
-    `${icon} *${device.home}*\\n` +
-    `${name} ${owner} 上线了\\n` +
-    `\\`${device.ip}\\``
+    `${icon} *${device.home}*\n` +
+    `${name} ${owner} 上线了\n` +
+    `\`${device.ip}\``
   );
 }
 
@@ -62,7 +62,7 @@ async function notifyOffline(device) {
   const owner = device.owner ? `(${device.owner})` : '';
   
   await sendMessage(
-    `${icon} *${device.home}*\\n` +
+    `${icon} *${device.home}*\n` +
     `${name} ${owner} 离线了`
   );
 }
@@ -72,10 +72,10 @@ async function notifyOffline(device) {
  */
 async function notifyNewDevice(device) {
   await sendMessage(
-    `🆕 *新设备发现*\\n` +
-    `家庭: ${device.home}\\n` +
-    `MAC: \\`${device.mac}\\`\\n` +
-    `IP: \\`${device.ip}\\``
+    `🆕 *新设备发现*\n` +
+    `家庭: ${device.home}\n` +
+    `MAC: \`${device.mac}\`\n` +
+    `IP: \`${device.ip}\``
   );
 }
 
@@ -83,7 +83,7 @@ async function notifyNewDevice(device) {
  * 定时汇总
  */
 async function notifySummary(stats, devices) {
-  let text = '📊 *家庭设备状态汇总*\\n\\n';
+  let text = '📊 *家庭设备状态汇总*\n\n';
   
   for (const homeName in stats) {
     const homeStats = stats[homeName];
@@ -94,12 +94,12 @@ async function notifySummary(stats, devices) {
       .map(d => d.owner)
       .join('、');
     
-    text += `*${homeName}*\\n`;
+    text += `*${homeName}*\n`;
     text += `在线: ${homeStats.online}人`;
     if (knownNames) {
       text += ` (${knownNames})`;
     }
-    text += '\\n\\n';
+    text += '\n\n';
   }
   
   await sendMessage(text);
