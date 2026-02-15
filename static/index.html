@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Home Presence</title>
+  <title>Home Presence - 设备在线监控</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -601,7 +601,7 @@
           <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/>
           <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/>
         </svg>
-        <span class="header-title">Home Presence</span>
+        <span class="header-title">设备在线监控</span>
       </div>
       <div class="header-right">
         <div class="refresh-dot" id="refreshDot"></div>
@@ -628,53 +628,53 @@
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal" role="dialog" aria-labelledby="modalTitle">
       <div class="modal-header">
-        <h3 class="modal-title" id="modalTitle">Edit Device</h3>
+        <h3 class="modal-title" id="modalTitle">编辑设备</h3>
         <button class="modal-close" onclick="closeModal()" aria-label="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label" for="editMac">MAC</label>
+          <label class="form-label" for="editMac">MAC 地址</label>
           <input class="form-input" type="text" id="editMac" readonly>
         </div>
         <div class="form-group" id="vendorGroup" style="display:none">
-          <label class="form-label" for="editVendor">Vendor</label>
+          <label class="form-label" for="editVendor">厂商</label>
           <input class="form-input" type="text" id="editVendor" readonly>
         </div>
         <div class="form-group">
-          <label class="form-label" for="editName">Device Name</label>
-          <input class="form-input" type="text" id="editName" placeholder="e.g. Living Room Speaker">
-          <div class="form-hint">A friendly name for this device</div>
+          <label class="form-label" for="editName">设备名称</label>
+          <input class="form-input" type="text" id="editName" placeholder="如：客厅音箱">
+          <div class="form-hint">给设备起一个容易识别的名字</div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="editOwner">Owner</label>
-          <input class="form-input" type="text" id="editOwner" placeholder="e.g. John">
-          <div class="form-hint">Who does this device belong to?</div>
+          <label class="form-label" for="editOwner">归属人</label>
+          <input class="form-input" type="text" id="editOwner" placeholder="如：小明">
+          <div class="form-hint">这台设备属于谁？</div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="editCategory">Category</label>
+          <label class="form-label" for="editCategory">设备类别</label>
           <select class="form-select" id="editCategory">
-            <option value="">Auto Detect</option>
-            <option value="phone">Phone</option>
-            <option value="laptop">Laptop</option>
-            <option value="desktop">Desktop</option>
-            <option value="tablet">Tablet</option>
-            <option value="tv">TV</option>
-            <option value="speaker">Speaker</option>
-            <option value="watch">Watch</option>
-            <option value="printer">Printer</option>
-            <option value="router">Router</option>
+            <option value="">自动检测</option>
+            <option value="phone">手机</option>
+            <option value="laptop">笔记本</option>
+            <option value="desktop">台式机</option>
+            <option value="tablet">平板</option>
+            <option value="tv">电视</option>
+            <option value="speaker">音箱</option>
+            <option value="watch">手表</option>
+            <option value="printer">打印机</option>
+            <option value="router">路由器</option>
             <option value="nas">NAS</option>
-            <option value="iot">IoT</option>
-            <option value="unknown">Unknown</option>
+            <option value="iot">IoT 设备</option>
+            <option value="unknown">未知</option>
           </select>
-          <div class="form-hint">Override auto-detected device category</div>
+          <div class="form-hint">覆盖自动检测的设备类别</div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveDevice()">Save</button>
+        <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveDevice()">保存</button>
       </div>
     </div>
   </div>
@@ -706,9 +706,9 @@
     };
 
     var categoryLabels = {
-      phone: 'Phone', laptop: 'Laptop', desktop: 'Desktop', tablet: 'Tablet',
-      tv: 'TV', speaker: 'Speaker', watch: 'Watch', printer: 'Printer',
-      router: 'Router', nas: 'NAS', iot: 'IoT', unknown: 'Unknown'
+      phone: '手机', laptop: '笔记本', desktop: '台式机', tablet: '平板',
+      tv: '电视', speaker: '音箱', watch: '手表', printer: '打印机',
+      router: '路由器', nas: 'NAS', iot: 'IoT 设备', unknown: '未知'
     };
 
     function getCategoryIcon(category) {
@@ -748,7 +748,7 @@
           updateRefreshTime();
         })
         .catch(function() {
-          showToast('Failed to load data');
+          showToast('加载数据失败');
         });
     }
 
@@ -780,7 +780,7 @@
         document.getElementById('content').innerHTML =
           '<div class="empty-state">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>' +
-            '<p>No homes found. Waiting for scanner data...</p>' +
+            '<p>未发现家庭，等待扫描数据...</p>' +
           '</div>';
         return;
       }
@@ -795,7 +795,7 @@
             '<div class="home-card-name">' + escapeHtml(name) + '</div>' +
             '<div class="home-card-stats">' +
               '<span class="home-card-count">' + s.online + '</span>' +
-              '<span class="home-card-label">online / ' + s.total + ' devices</span>' +
+              '<span class="home-card-label">在线 / ' + s.total + ' 台设备</span>' +
             '</div>' +
           '</div>';
       });
@@ -812,23 +812,23 @@
       var html =
         '<button class="back-btn" onclick="goHome()">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>' +
-          'All Homes' +
+          '所有家庭' +
         '</button>' +
         '<div class="section-header">' +
           '<h2 class="section-title">' + escapeHtml(currentHome) + '</h2>' +
-          '<span class="section-badge">' + onlineDevs.length + ' / ' + devs.length + ' online</span>' +
+          '<span class="section-badge">' + onlineDevs.length + ' / ' + devs.length + ' 在线</span>' +
         '</div>';
 
       if (sorted.length === 0) {
         html +=
           '<div class="empty-state">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>' +
-            '<p>No devices found in this home</p>' +
+            '<p>该家庭暂无设备</p>' +
           '</div>';
       } else {
         html += '<div class="device-grid">';
         sorted.forEach(function(d) {
-          var displayName = d.name || d.hostname || d.deviceType || 'Unknown Device';
+          var displayName = d.name || d.hostname || d.deviceType || '未知设备';
           var statusClass = d.online ? 'online' : 'offline';
           var cat = d.category || 'unknown';
           var icon = getCategoryIcon(cat);
@@ -855,7 +855,7 @@
                 (tags ? '<div class="device-tags">' + tags + '</div>' : '') +
               '</div>' +
               '<div class="device-right">' +
-                '<span class="device-badge ' + statusClass + '">' + (d.online ? 'Online' : 'Offline') + '</span>' +
+                '<span class="device-badge ' + statusClass + '">' + (d.online ? '在线' : '离线') + '</span>' +
               '</div>' +
             '</div>';
         });
@@ -928,11 +928,11 @@
         })
         .then(function() {
           closeModal();
-          showToast('Device updated');
+          showToast('设备已更新');
           loadData();
         })
         .catch(function() {
-          showToast('Failed to save');
+          showToast('保存失败');
         });
     }
 

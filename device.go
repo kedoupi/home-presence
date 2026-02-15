@@ -73,14 +73,32 @@ var (
 	mu          sync.RWMutex
 )
 
-// rawMAC strips separators and uppercases: "aa:bb:cc:dd:ee:ff" -> "AABBCCDDEEFF"
-func rawMAC(mac string) string {
-	return strings.ToUpper(strings.NewReplacer(":", "", "-", "").Replace(mac))
-}
-
 // normalizeMac converts any MAC format to uppercase dash-separated: "AA-BB-CC-DD-EE-FF"
+// Handles short-form octets from macOS arp output (e.g., "f0:55:1:39:36:2e" → "F0-55-01-39-36-2E").
 func normalizeMac(mac string) string {
-	raw := rawMAC(mac)
+	// Detect separator (colon or dash with 6 octets)
+	var sep string
+	if strings.Contains(mac, ":") {
+		sep = ":"
+	} else if strings.Contains(mac, "-") {
+		sep = "-"
+	}
+	if sep != "" {
+		octets := strings.Split(mac, sep)
+		if len(octets) == 6 {
+			parts := make([]string, 6)
+			for i, octet := range octets {
+				o := strings.ToUpper(octet)
+				if len(o) == 1 {
+					o = "0" + o
+				}
+				parts[i] = o
+			}
+			return strings.Join(parts, "-")
+		}
+	}
+	// Dot-separated (e.g., "AABB.CCDD.EEFF") or no separator
+	raw := strings.ToUpper(strings.NewReplacer(":", "", "-", "", ".", "").Replace(mac))
 	if len(raw) != 12 {
 		return strings.ToUpper(mac)
 	}
@@ -89,6 +107,11 @@ func normalizeMac(mac string) string {
 		parts[i] = raw[i*2 : i*2+2]
 	}
 	return strings.Join(parts, "-")
+}
+
+// rawMAC returns the normalized MAC without separators: "AA-BB-CC-DD-EE-FF" → "AABBCCDDEEFF"
+func rawMAC(mac string) string {
+	return strings.ReplaceAll(normalizeMac(mac), "-", "")
 }
 
 // initDevice creates or updates a device in the store. Returns the device pointer.

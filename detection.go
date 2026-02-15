@@ -71,6 +71,8 @@ var vendorCategoryHints = map[string]DeviceCategory{
 	"ARRIS Group, Inc.":            CatRouter,
 	"Belkin International Inc.":    CatRouter,
 	"Hikvision Digital Technology":  CatIoT,
+	"Huawei Device Co., Ltd.":       CatRouter,
+	"HUAWEI TECHNOLOGIES CO.,LTD":   CatRouter,
 }
 
 // hostnamePatterns maps hostname keywords to device category.
@@ -82,9 +84,12 @@ var hostnamePatterns = []struct {
 	{regexp.MustCompile(`(?i)iphone`), CatPhone, "Apple"},
 	{regexp.MustCompile(`(?i)ipad`), CatTablet, "Apple"},
 	{regexp.MustCompile(`(?i)macbook`), CatLaptop, "Apple"},
+	{regexp.MustCompile(`(?i)\bmbp\b`), CatLaptop, "Apple"},  // MacBook Pro abbreviation
+	{regexp.MustCompile(`(?i)\bmba\b`), CatLaptop, "Apple"},  // MacBook Air abbreviation
 	{regexp.MustCompile(`(?i)imac`), CatDesktop, "Apple"},
 	{regexp.MustCompile(`(?i)mac-?pro`), CatDesktop, "Apple"},
 	{regexp.MustCompile(`(?i)mac-?mini`), CatDesktop, "Apple"},
+	{regexp.MustCompile(`(?i)\bmini\b.*\.local`), CatDesktop, "Apple"}, // Mac Mini hostname
 	{regexp.MustCompile(`(?i)mac-?studio`), CatDesktop, "Apple"},
 	{regexp.MustCompile(`(?i)apple-?tv`), CatTV, "Apple"},
 	{regexp.MustCompile(`(?i)homepod`), CatSpeaker, "Apple"},
@@ -226,6 +231,8 @@ var shortVendorMap = map[string]string{
 	"ASUSTek COMPUTER INC.":           "ASUS",
 	"LG Electronics (Mobile Communications)": "LG",
 	"OnePlus Technology (Shenzhen) Co., Ltd": "OnePlus",
+	"Huawei Device Co., Ltd.":                "Huawei",
+	"HUAWEI TECHNOLOGIES CO.,LTD":            "Huawei",
 }
 
 // shortVendor extracts a clean short vendor name from the full OUI vendor string.

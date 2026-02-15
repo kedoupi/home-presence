@@ -155,6 +155,10 @@ func parseArpTable() []Device {
 		if mac == "FF-FF-FF-FF-FF-FF" {
 			continue
 		}
+		// Skip multicast MACs (01-00-5E-xx prefix = IPv4 multicast, 33-33-xx = IPv6 multicast)
+		if strings.HasPrefix(mac, "01-00-5E-") || strings.HasPrefix(mac, "33-33-") {
+			continue
+		}
 		dev := Device{MAC: mac, IP: ip}
 		mu.RLock()
 		if saved, ok := deviceStore[mac]; ok && saved.Name != "" {

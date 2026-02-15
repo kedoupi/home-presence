@@ -18,16 +18,19 @@ type mdnsServiceInfo struct {
 }
 
 var mdnsServiceMap = map[string]mdnsServiceInfo{
-	"_companion-link._tcp": {CatPhone, 70},
-	"_airplay._tcp":        {CatTV, 70},
-	"_raop._tcp":           {CatSpeaker, 65},
-	"_googlecast._tcp":     {CatTV, 80},
-	"_ipp._tcp":            {CatPrinter, 95},
-	"_printer._tcp":        {CatPrinter, 95},
-	"_smb._tcp":            {CatNAS, 60},
-	"_ssh._tcp":            {CatDesktop, 40},
-	"_homekit._tcp":        {CatIoT, 50},
+	"_companion-link._tcp":  {CatPhone, 30},   // ALL Apple devices, very weak signal
+	"_apple-mobdev2._tcp":   {CatPhone, 90},   // iOS devices only (iPhone/iPad)
+	"_airplay._tcp":         {CatTV, 70},
+	"_raop._tcp":            {CatSpeaker, 65},
+	"_googlecast._tcp":      {CatTV, 80},
+	"_ipp._tcp":             {CatPrinter, 95},
+	"_printer._tcp":         {CatPrinter, 95},
+	"_smb._tcp":             {CatNAS, 60},
+	"_ssh._tcp":             {CatDesktop, 40},
+	"_homekit._tcp":         {CatIoT, 50},
 	"_spotify-connect._tcp": {CatSpeaker, 75},
+	"_mediaremotetv._tcp":   {CatTV, 85},      // Apple TV media remote
+	"_touch-able._tcp":      {CatPhone, 85},   // Apple Remote app (iOS)
 }
 
 type mdnsCacheEntry struct {

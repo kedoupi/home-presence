@@ -13,7 +13,10 @@ func TestRawMAC(t *testing.T) {
 		{"aa:bb:cc:dd:ee:ff", "AABBCCDDEEFF"},
 		{"AA:BB:CC:DD:EE:FF", "AABBCCDDEEFF"},
 		{"AA-BB-CC-DD-EE-FF", "AABBCCDDEEFF"},
-		{"aabb.ccdd.eeff", "AABB.CCDD.EEFF"}, // dots not stripped by rawMAC (only : and - are removed)
+		{"aabb.ccdd.eeff", "AABBCCDDEEFF"},
+		// Short-form MACs from macOS arp (e.g., "1:0:5e:0:0:fb")
+		{"f0:55:1:39:36:2e", "F0550139362E"},
+		{"1:0:5e:0:0:fb", "01005E0000FB"},
 		{"", ""},
 	}
 	for _, tt := range tests {
@@ -34,6 +37,13 @@ func TestNormalizeMac(t *testing.T) {
 		{"AA-BB-CC-DD-EE-FF", "AA-BB-CC-DD-EE-FF"},
 		{"aabbccddeeff", "AA-BB-CC-DD-EE-FF"},
 		{"AABBCCDDEEFF", "AA-BB-CC-DD-EE-FF"},
+		// Dot-separated (Cisco format)
+		{"aabb.ccdd.eeff", "AA-BB-CC-DD-EE-FF"},
+		// Short-form MACs from macOS arp (single hex digits)
+		{"f0:55:1:39:36:2e", "F0-55-01-39-36-2E"},
+		{"1:0:5e:0:0:fb", "01-00-5E-00-00-FB"},
+		{"50:a0:9:e7:6c:f9", "50-A0-09-E7-6C-F9"},
+		{"7e:82:fa:b6:6:e0", "7E-82-FA-B6-06-E0"},
 		// Short/invalid MAC: returned uppercased as-is
 		{"abc", "ABC"},
 		{"", ""},
