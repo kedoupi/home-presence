@@ -8,102 +8,69 @@
 - 📱 **设备识别** — MAC 地址白名单，识别是谁的设备
 - 🔔 **状态推送** — 设备上线/离线时 Telegram 推送
 - 📊 **Web 管理界面** — 可视化查看各家庭设备、编辑映射
-- 📝 **历史记录** — 查看谁什么时候回家/离家
+- ⚡ **单二进制文件** — 无需安装任何依赖
 
 ## 快速开始
 
-### 1. 克隆项目
+### 1. 下载二进制
 
 ```bash
-git clone https://github.com/kedoupi/home-presence.git
-cd home-presence
+# macOS ARM (Apple Silicon)
+curl -L -o home-presence https://github.com/kedoupi/home-presence/releases/download/v1.0.0/home-presence
+
+# macOS Intel
+curl -L -o home-presence https://github.com/kedoupi/home-presence/releases/download/v1.0.0/home-presence
+
+# Linux
+curl -L -o home-presence https://github.com/kedoupi/home-presence/releases/download/v1.0.0/home-presence
 ```
-
-### 2. 配置
-
-复制并编辑配置文件：
 
 ```bash
-cp config.example.yaml config.yaml
+chmod +x home-presence
 ```
 
-编辑 `config.yaml`，配置：
-
-```yaml
-# 服务配置
-server:
-  host: "0.0.0.0"
-  port: 3000
-
-# Telegram 推送
-telegram:
-  enabled: true
-  bot_token: "YOUR_BOT_TOKEN"
-  chat_id: "YOUR_CHAT_ID"
-
-# 家庭配置
-homes:
-  家庭A:
-    scanner_enabled: true    # 是否在此机器运行扫描器
-    subnet: "10.8.0.0/24"   # 扫描的网段
-    devices: []
-  
-  家庭B:
-    scanner_enabled: false   # 家庭B的扫描器运行在其他机器
-    devices: []
-
-# 设备映射（首次运行后会自动填充未知设备）
-devices: {}
-```
-
-### 3. 启动
+### 2. 运行
 
 ```bash
-# 方式一：Docker（推荐）
-docker compose up -d
-
-# 方式二：Node.js 直接运行
-npm install
-npm run dev
+# 中央服务 + 扫描器（单台机器）
+./home-presence -role both -home 家庭A -port 8080
 ```
 
-### 4. 访问 Web UI
+### 3. 访问 Web UI
 
-打开 http://localhost:3000 查看设备状态。
+打开 http://localhost:8080 查看设备状态。
+
+---
+
+## 命令行参数
+
+| 参数 | 缩写 | 默认值 | 说明 |
+|------|------|--------|------|
+| `-port` | - | 8080 | HTTP 服务端口 |
+| `-home` | - | 家庭A | 家庭名称 |
+| `-role` | - | both | 运行角色：both/server/scanner |
+| `-central` | - | - | 中央服务地址（scanner 模式使用） |
+| `-subnet` | - | 自动检测 | 扫描的网段 |
+| `-interval` | - | 30000 | 扫描间隔（毫秒） |
 
 ---
 
 ## 多机器部署
 
-### 中央服务（家庭A，IP: 10.8.0.2）
+### 中央服务（家庭A）
 
 运行扫描器 + 中央服务 + Web UI：
 
-```yaml
-# config.yaml
-homes:
-  家庭A:
-    scanner_enabled: true
-    subnet: "10.8.0.0/24"
+```bash
+./home-presence -role both -home 家庭A -port 8080
 ```
 
-启动后访问 http://10.8.0.2:3000
-
-### 扫描器节点（家庭B，IP: 10.8.0.3）
+### 扫描器节点（家庭B）
 
 只运行扫描器，上报到中央服务：
 
 ```bash
-# 方式一：Docker
-docker run -d \
-  --network host \
-  -e CENTRAL_URL=http://10.8.0.2:3000 \
-  -e HOME_NAME=家庭B \
-  -e SCAN_SUBNET=10.8.0.0/24 \
-  home-presence-scanner
-
-# 方式二：Node.js
-SCAN_SUBNET=10.8.0.0/24 HOME_NAME=家庭B CENTRAL_URL=http://10.8.0.2:3000 npm run scanner
+./home-presence -role scanner -home 家庭B -central http://10.8.0.2:8080
 ```
 
 ---
@@ -112,77 +79,41 @@ SCAN_SUBNET=10.8.0.0/24 HOME_NAME=家庭B CENTRAL_URL=http://10.8.0.2:3000 npm r
 
 ### 方式一：Web UI 编辑
 
-1. 打开 http://localhost:3000
+1. 打开 http://localhost:8080
 2. 点击未知设备
 3. 填写名称和所属人
 
-### 方式二：直接编辑配置
-
-```yaml
-devices:
-  "AA:BB:CC:DD:EE:01":
-    name: "张老板 iPhone"
-    owner: "张老板"
-    home: 家庭A
-```
-
----
-
-## API 接口
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | /api/report | 扫描器上报设备 |
-| GET | /api/devices | 获取所有设备状态 |
-| PUT | /api/devices/:mac | 更新设备信息 |
-| GET | / | Web 管理界面 |
-
----
-
-## 依赖
-
-- Node.js 18+
-- arp-scan（系统依赖，扫描局域网）
-- Docker & Docker Compose（可选）
-
-### 安装 arp-scan
+### 方式二：API
 
 ```bash
-# macOS
-brew install arp-scan
+# 获取所有设备
+curl http://localhost:8080/api/devices
 
-# Ubuntu/Debian
-sudo apt install arp-scan
-
-# CentOS/RHEL
-sudo yum install arp-scan
+# 更新设备信息
+curl -X PUT http://localhost:8080/api/devices/XX:XX:XX:XX:XX:XX \
+  -H "Content-Type: application/json" \
+  -d '{"name":"张老板 iPhone","owner":"张老板"}'
 ```
 
 ---
 
-## 目录结构
+## 扫描原理
 
-```
-home-presence/
-├── src/
-│   ├── scanner/        # 设备扫描器
-│   ├── server/         # 中央服务 + Web UI
-│   └── shared/         # 共享类型
-├── public/             # 静态资源
-├── config.example.yaml # 配置示例
-├── Dockerfile
-├── docker-compose.yaml
-└── package.json
-```
+1. **ARP 表**：优先读取系统 ARP 表（最快）
+2. **Ping 扫描**：ARP 为空时，使用 ping 扫描整个网段
+3. **自动检测**：自动识别本机所在的局域网网段
 
 ---
 
-## 未来计划
+## Telegram 推送（可选）
 
-- [ ] 自动发现家庭（通过 mDNS/Tailscale API）
-- [ ] 微信推送支持
-- [ ] 设备指纹识别（根据 MAC 厂商前缀猜设备类型）
-- [ ] 历史数据图表
+编辑 `data/devices.json` 添加 Telegram 配置，或通过 Web UI 界面配置。
+
+---
+
+## 数据存储
+
+设备信息保存在 `data/devices.json`，程序退出时会自动保存。
 
 ---
 
