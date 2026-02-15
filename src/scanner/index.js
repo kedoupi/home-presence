@@ -11,12 +11,54 @@
  */
 
 const { exec } = require('child_process');
+const os = require('os');
 const axios = require('axios');
 
-const SCAN_SUBNET = process.env.SCAN_SUBNET || '10.8.0.0/24';
+const SCAN_SUBNET = process.env.SCAN_SUBNET;  // 可选，不填则自动检测
 const HOME_NAME = process.env.HOME_NAME || '家庭A';
 const CENTRAL_URL = process.env.CENTRAL_URL || null;
 const SCAN_INTERVAL = parseInt(process.env.SCAN_INTERVAL) || 10000;
+
+/**
+ * 自动检测本机所在网段
+ */
+function detectSubnet() {
+  const interfaces = os.networkInterfaces();
+  
+  for (const name of Object.keys(interfaces)) {
+    for (const info of interfaces[name]) {
+      // 跳过 IPv6 和内部地址
+      if (info.family !== 'IPv4' || info.internal) continue;
+      
+      // 跳过 Docker/VPN 接口（通常有 Docker 或 tun/tap 前缀）
+      if (name.includes('docker') || name.includes('tun') || name.includes('tap') || name.includes('utun')) continue;
+      
+      // 从 IP 和子网掩码计算网段
+      const ip = info.address;
+      const mask = info.netmask;
+      const subnet = ipToSubnet(ip, mask);
+      
+      if (subnet) {
+        console.log(`🔍 自动检测到网段: ${subnet} (接口: ${name})`);
+        return subnet;
+      }
+    }
+  }
+  
+  console.warn('⚠️ 无法自动检测网段，使用默认值');
+  return '10.8.0.0/24';
+}
+
+/**
+ * IP + 子网掩码 -> 网段
+ */
+function ipToSubnet(ip, mask) {
+  const ipParts = ip.split('.').map(Number);
+  const maskParts = mask.split('.').map(Number);
+  
+  const network = ipParts.map((p, i) => p & maskParts[i]).join('.');
+  return `${network}/24`; // 简化处理，假设都是 /24
+}
 
 /**
  * 解析 arp-scan 输出
@@ -96,9 +138,12 @@ async function reportToCentral(devices) {
  * 主循环
  */
 async function main() {
+  // 自动检测网段（如果未指定）
+  const subnet = SCAN_SUBNET || detectSubnet();
+  
   console.log('🏠 设备扫描器启动');
   console.log(`   家庭: ${HOME_NAME}`);
-  console.log(`   网段: ${SCAN_SUBNET}`);
+  console.log(`   网段: ${subnet}`);
   console.log(`   目标: ${CENTRAL_URL || '本地输出'}`);
   console.log(`   间隔: ${SCAN_INTERVAL}ms`);
   console.log('');
