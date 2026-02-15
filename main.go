@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
 	"runtime"
 	"strings"
 	"syscall"
@@ -114,12 +115,18 @@ func parseArpTable() []Device {
 	
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
+		// 跳过 incomplete 的条目
+		if strings.Contains(line, "(incomplete)") {
+			continue
+		}
+		
 		// 匹配格式: ? (192.168.1.1) at xx:xx:xx:xx:xx:xx on en0
-		var mac string
-		var ip string
-		fmt.Sscanf(line, "? (%s) at %s", &ip, &mac)
-		if ip != "" && mac != "" && !strings.Contains(mac, "ff:ff:ff:ff:ff:ff") {
-			mac = strings.ToUpper(strings.ReplaceAll(mac, ":", "-"))
+		// 使用正则表达式
+		re := regexp.MustCompile(`\((\d+\.\d+\.\d+\.\d+)\)\s+at\s+([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})`)
+		matches := re.FindStringSubmatch(line)
+		if len(matches) == 3 {
+			ip := matches[1]
+			mac := strings.ToUpper(strings.ReplaceAll(matches[2], ":", "-"))
 			devices = append(devices, Device{MAC: mac, IP: ip})
 		}
 	}
