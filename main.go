@@ -165,11 +165,42 @@ func scanNetwork(subnetStr string) []Device {
 	}()
 	select {
 	case devices := <-devChan:
+		// 尝试通过mDNS获取设备名称
+		mdnsNames := scanMDNS()
+		for i := range devices {
+			if name, ok := mdnsNames[devices[i].IP]; ok && devices[i].Name == "" {
+				devices[i].Name = name
+			}
+		}
 		return devices
 	case <-time.After(3 * time.Second):
 		fmt.Println("   ARP表读取超时")
 		return []Device{}
 	}
+}
+
+// 通过NetBIOS扫描获取设备名称
+func scanMDNS() map[string]string {
+	result := make(map[string]string)
+	
+	output, _ := exec.Command("sh", "-c", "arp -a | grep -v incomplete").Output()
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		ipRe := regexp.MustCompile(`\((\d+\.\d+\.\d+\.\d+)\)`)
+		matches := ipRe.FindStringSubmatch(line)
+		if len(matches) == 2 {
+			ip := matches[1]
+			// 尝试nmblookup获取NetBIOS名称
+			nbOutput, _ := exec.Command("nmblookup", "-A", ip).Output()
+			nbRe := regexp.MustCompile(`(\S+)<00>`)
+			nbMatches := nbRe.FindStringSubmatch(string(nbOutput))
+			if len(nbMatches) == 2 && len(nbMatches[1]) < 16 {
+				result[ip] = nbMatches[1]
+			}
+		}
+	}
+	
+	return result
 }
 
 func reportToCentral(devices []Device) {
