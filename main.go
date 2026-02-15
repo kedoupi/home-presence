@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -219,81 +218,28 @@ func parseArpTable() []Device {
 // 扫描局域网
 func scanNetwork(subnetStr string) []Device {
 	// 先尝试ARP表
-	devices := parseArpTable()
-	if len(devices) > 0 {
-		fmt.Printf("   ARP表发现 %d 个设备\n", len(devices))
-		return devices
-	}
+	devChan := make(chan []Device, 1)
 	
-	// ARP为空，用ping扫描
-	fmt.Println("   ARP表为空，使用ping扫描...")
-	
-	// 解析网段
-	parts := strings.Split(strings.Split(subnetStr, "/")[0], ".")
-	base := parts[0] + "." + parts[1] + "." + parts[2]
-	
-	// 并发ping
-	ch := make(chan Device, 254)
-	var wg sync.WaitGroup
-	concurrency := 50
-	sem := make(chan struct{}, concurrency)
-	
-	for i := 1; i <= 254; i++ {
-		wg.Add(1)
-		ip := fmt.Sprintf("%s.%d", base, i)
-		go func(ip string) {
-			defer wg.Done()
-			<-sem
-			defer func() { sem <- struct{}{} }()
-			
-			var cmd *exec.Cmd
-			if runtime.GOOS == "darwin" {
-				cmd = exec.Command("/sbin/ping", "-c", "1", "-t", "1", ip)
-			} else {
-				cmd = exec.Command("ping", "-c", "1", "-W", "1", ip)
-			}
-			
-			if err := cmd.Run(); err == nil {
-				// ping成功，尝试获取MAC
-				arpCmd := exec.Command("arp", "-n", ip)
-				arpOut, _ := arpCmd.Output()
-				arpStr := string(arpOut)
-				
-				var mac string
-				fmt.Sscanf(arpStr, "%s %s %s", &mac, &mac, &mac)
-				if mac != "" && !strings.Contains(mac, "ff:ff:ff:ff:ff:ff") && !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") {
-					mac = strings.ToUpper(strings.ReplaceAll(mac, ":", "-"))
-					select {
-					case ch <- Device{MAC: mac, IP: ip, DeviceType: getDeviceType(mac)}:
-					default:
-					}
-				}
-			}
-		}(ip)
-		if i%concurrency == 0 {
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-	
-	// 等待所有goroutine完成
+	// 启动ARP读取 goroutine
 	go func() {
-		wg.Wait()
-		close(ch)
+		devices := parseArpTable()
+		devChan <- devices
 	}()
 	
-	// 等待channel关闭，最多3秒
-	timeout := time.After(3 * time.Second)
-	for {
-		select {
-		case dev, ok := <-ch:
-			if !ok {
-				return devices
-			}
-			devices = append(devices, dev)
-		case <-timeout:
+	// 等待ARP结果，最多2秒
+	select {
+	case devices := <-devChan:
+		if len(devices) > 0 {
+			fmt.Printf("   ARP表发现 %d 个设备\n", len(devices))
 			return devices
 		}
+	case <-time.After(2 * time.Second):
+		fmt.Println("   ARP表读取超时")
 	}
+	
+	// ARP为空或超时，返回空（不进行ping扫描，节省时间）
+	fmt.Println("   ARP表为空，跳过ping扫描")
+	return []Device{}
 }
 
 // 上报中央服务器
