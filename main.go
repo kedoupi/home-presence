@@ -218,13 +218,25 @@ func parseArpTable() []Device {
 		}
 		
 		// 匹配格式: ? (192.168.1.1) at xx:xx:xx:xx:xx:xx on en0
-		re := regexp.MustCompile(`\((\d+\.\d+\.\d+\.\d+)\)\s+at\s+([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})`)
+		// 支持: c:84:8:ea:a1:52 或 0c:84:08:ea:a1:52
+		re := regexp.MustCompile(`\((\d+\.\d+\.\d+\.\d+)\)\s+at\s+([0-9a-fA-F]{1,2}[:][0-9a-fA-F]{1,2}[:][0-9a-fA-F]{1,2}[:][0-9a-fA-F]{1,2}[:][0-9a-fA-F]{1,2}[:][0-9a-fA-F]{1,2})`)
 		matches := re.FindStringSubmatch(line)
 		if len(matches) == 3 {
 			ip := matches[1]
-			mac := strings.ToUpper(strings.ReplaceAll(matches[2], ":", "-"))
+			mac := matches[2]
+			// 标准化 MAC 地址（补齐前导0，转大写，用横线分隔）
+			macParts := strings.Split(mac, ":")
+			var standardized []string
+			for _, p := range macParts {
+				if len(p) == 1 {
+					p = "0" + p
+				}
+				standardized = append(standardized, strings.ToUpper(p))
+			}
+			mac = strings.Join(standardized, "-")
+			
 			// 过滤广播地址
-			if !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") && !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") {
+			if !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") {
 				devices = append(devices, Device{MAC: mac, IP: ip})
 			}
 		}
