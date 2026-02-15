@@ -13,7 +13,7 @@
 
 ## 安装
 
-### 方式 1：从源码构建
+### 方式 1：从源码构建（需要 Go 环境）
 
 **前置条件：** Go 1.24+
 
@@ -39,25 +39,23 @@ sudo ./home-presence -role both -home 家庭A -port 8080
 
 > 不安装 nmblookup 不影响核心功能，仅跳过 NetBIOS 名称查询。
 
-### 方式 2：Docker
+### 方式 2：下载预编译二进制
+
+从 [Releases](https://github.com/kedoupi/home-presence/releases) 下载对应平台的二进制：
+
+| 平台 | 文件 |
+|------|------|
+| Linux x86_64（服务器/NAS） | `home-presence-linux-amd64.tar.gz` |
+| Linux ARM64（树莓派） | `home-presence-linux-arm64.tar.gz` |
+| macOS Apple Silicon | `home-presence-darwin-arm64.tar.gz` |
+| macOS Intel | `home-presence-darwin-amd64.tar.gz` |
 
 ```bash
-git clone https://github.com/kedoupi/home-presence.git
-cd home-presence
-docker compose up -d
+tar xzf home-presence-linux-amd64.tar.gz
+sudo ./home-presence-linux-amd64 -role both -home 家庭A -port 8080
 ```
 
-> 必须使用 `network_mode: host`，否则无法扫描宿主机局域网。
-
-### 方式 3：Docker 手动运行
-
-```bash
-docker build -t home-presence .
-docker run -d --network host -v ./data:/data home-presence \
-  -role both -home 家庭A -port 8080
-```
-
-### 方式 4：交叉编译部署到远程机器
+### 方式 3：交叉编译部署到远程机器
 
 ```bash
 # 编译 Linux ARM64（树莓派等）
