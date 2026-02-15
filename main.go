@@ -27,16 +27,90 @@ var (
 	role     = flag.String("role", "both", "Role: both, server, or scanner")
 )
 
+// 常见设备厂商映射 (OUI 前缀)
+var ouiMap = map[string]string{
+	// Apple
+	"3C-CD-57": "Apple iPhone",
+	"3C:CD:57": "Apple iPhone",
+	"D0-11-E5": "Apple MacBook",
+	"D0:11:E5": "Apple MacBook",
+	"1A-19-7C": "Apple iPad/Mac",
+	"1A:19:7C": "Apple iPad/Mac",
+	"F8-10-93": "Apple iPhone",
+	"F8:10:93": "Apple iPhone",
+	"70-C9-32": "Apple iPhone",
+	"70:C9:32": "Apple iPhone",
+	"B2-DE-28": "Apple Mac",
+	"B2:DE:28": "Apple Mac",
+	"6C-71-D2": "Apple iPhone",
+	"6C:71:D2": "Apple iPhone",
+	"46-66-9A": "Apple Watch",
+	"46:66:9A": "Apple Watch",
+	"C0-35-32": "Apple Mac",
+	"C0:35:32": "Apple Mac",
+	"1A-78-30": "Apple TV",
+	"1A:78:30": "Apple TV",
+	
+	// Samsung
+	"9C-63-5B": "Samsung",
+	"9C:63:5B": "Samsung",
+	
+	// Huawei
+	"00-1E-10": "Huawei",
+	"00:1E:10": "Huawei",
+	
+	// Xiaomi
+	"34-80-B3": "Xiaomi",
+	"34:80:B3": "Xiaomi",
+	
+	// TP-Link
+	"50-3E-AA": "TP-Link",
+	"50:3E:AA": "TP-Link",
+	
+	// Intel
+	"3C-A9-F4": "Intel",
+	"3C:A9:F4": "Intel",
+	
+	// 其他常见
+	"00-0C-29": "VMware",
+	"00:0C:29": "VMware",
+}
+
+// 获取设备类型
+func getDeviceType(mac string) string {
+	// 去掉冒号和横线，统一格式
+	mac = strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(mac, ":", ""), "-", ""))
+	
+	// 取前8位（前4个字节）
+	if len(mac) >= 8 {
+		prefix := mac[:2] + "-" + mac[2:4] + "-" + mac[4:6] + "-" + mac[6:8]
+		if name, ok := ouiMap[prefix]; ok {
+			return name
+		}
+	}
+	
+	// 尝试另一种格式
+	if len(mac) >= 6 {
+		prefix := mac[:2] + ":" + mac[2:4] + ":" + mac[4:6]
+		if name, ok := ouiMap[prefix]; ok {
+			return name
+		}
+	}
+	
+	return ""
+}
+
 // 设备状态存储
 type Device struct {
-	MAC      string `json:"mac"`
-	IP       string `json:"ip"`
-	Name     string `json:"name,omitempty"`
-	Owner    string `json:"owner,omitempty"`
-	Home     string `json:"home"`
-	Known    bool   `json:"known"`
-	Online   bool   `json:"online"`
-	LastSeen int64  `json:"lastSeen"`
+	MAC       string `json:"mac"`
+	IP        string `json:"ip"`
+	Name      string `json:"name,omitempty"`
+	Owner     string `json:"owner,omitempty"`
+	Home      string `json:"home"`
+	Known     bool   `json:"known"`
+	Online    bool   `json:"online"`
+	LastSeen  int64  `json:"lastSeen"`
+	DeviceType string `json:"deviceType,omitempty"`
 }
 
 type DeviceReport struct {
@@ -63,14 +137,20 @@ func initDevice(mac, ip, home string) *Device {
 		dev.Online = true
 		dev.IP = ip
 		dev.LastSeen = time.Now().UnixMilli()
+		// 尝试识别设备类型
+		if dev.DeviceType == "" {
+			dev.DeviceType = getDeviceType(mac)
+		}
 		return dev
 	}
+	deviceType := getDeviceType(mac)
 	dev := &Device{
-		MAC:      mac,
-		IP:       ip,
-		Home:     home,
-		Online:   true,
-		LastSeen: time.Now().UnixMilli(),
+		MAC:        mac,
+		IP:         ip,
+		Home:       home,
+		Online:     true,
+		LastSeen:   time.Now().UnixMilli(),
+		DeviceType: deviceType,
 	}
 	deviceStore[mac] = dev
 	return dev
@@ -100,7 +180,6 @@ func getLocalNetwork() (string, string) {
 func parseArpTable() []Device {
 	var devices []Device
 	
-	// 尝试读取ARP表
 	var output []byte
 	var err error
 	
@@ -122,13 +201,15 @@ func parseArpTable() []Device {
 		}
 		
 		// 匹配格式: ? (192.168.1.1) at xx:xx:xx:xx:xx:xx on en0
-		// 使用正则表达式
 		re := regexp.MustCompile(`\((\d+\.\d+\.\d+\.\d+)\)\s+at\s+([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})`)
 		matches := re.FindStringSubmatch(line)
 		if len(matches) == 3 {
 			ip := matches[1]
 			mac := strings.ToUpper(strings.ReplaceAll(matches[2], ":", "-"))
-			devices = append(devices, Device{MAC: mac, IP: ip})
+			// 过滤广播地址
+			if !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") && !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") {
+				devices = append(devices, Device{MAC: mac, IP: ip})
+			}
 		}
 	}
 	
@@ -180,10 +261,10 @@ func scanNetwork(subnetStr string) []Device {
 				
 				var mac string
 				fmt.Sscanf(arpStr, "%s %s %s", &mac, &mac, &mac)
-				if mac != "" && !strings.Contains(mac, "ff:ff:ff:ff:ff:ff") {
+				if mac != "" && !strings.Contains(mac, "ff:ff:ff:ff:ff:ff") && !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") {
 					mac = strings.ToUpper(strings.ReplaceAll(mac, ":", "-"))
 					select {
-					case ch <- Device{MAC: mac, IP: ip}:
+					case ch <- Device{MAC: mac, IP: ip, DeviceType: getDeviceType(mac)}:
 					default:
 					}
 				}
@@ -279,7 +360,11 @@ func runScan(subnetStr string) {
 	fmt.Printf("   发现 %d 个设备\n", len(devices))
 	
 	for _, d := range devices {
-		fmt.Printf("   - %s  %s\n", d.IP, d.MAC)
+		fmt.Printf("   - %s  %s", d.IP, d.MAC)
+		if d.DeviceType != "" {
+			fmt.Printf("  [%s]", d.DeviceType)
+		}
+		fmt.Println()
 		initDevice(d.MAC, d.IP, *homeName)
 	}
 	
@@ -309,6 +394,9 @@ func startServer() {
 			dev := initDevice(d.MAC, d.IP, report.Home)
 			dev.Online = true
 			dev.LastSeen = time.Now().UnixMilli()
+			if d.DeviceType != "" {
+				dev.DeviceType = d.DeviceType
+			}
 		}
 		
 		// 更新统计
@@ -373,7 +461,7 @@ func startServer() {
   <title>家庭设备监控</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; padding: 20px; }
-    .container { max-width: 800px; margin: 0 auto; }
+    .container { max-width: 900px; margin: 0 auto; }
     h1 { text-align: center; margin-bottom: 30px; }
     .stats { display: flex; gap: 20px; justify-content: center; margin-bottom: 30px; }
     .stat-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -382,11 +470,15 @@ func startServer() {
     .device-card { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e; }
     .device-card.offline { border-left-color: #999; opacity: 0.6; }
     .device-card.unknown { border-left-color: #f59e0b; }
+    .device-header { display: flex; justify-content: space-between; align-items: center; }
     .device-name { font-weight: 600; }
+    .device-type { font-size: 12px; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
     .device-info { color: #666; font-size: 13px; margin-top: 5px; }
     .status { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #dcfce7; color: #166534; }
     .status.offline { background: #f3f4f6; color: #666; }
     .empty { text-align: center; padding: 40px; color: #999; }
+    .home-section { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .home-section h2 { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
   </style>
 </head>
 <body>
@@ -406,8 +498,8 @@ func startServer() {
         data.devices.forEach(d => { byHome[d.home] = byHome[d.home] || []; byHome[d.home].push(d); });
         
         document.getElementById('deviceList').innerHTML = Object.entries(byHome).map(([home, devs]) =>
-          '<div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><h2>'+home+'</h2><div class="device-list">' +
-          devs.map(d => '<div class="device-card '+(d.online?'':'offline')+' '+(d.known?'':'unknown')+'"><div><span class="device-name">'+(d.name||'未知设备')+'</span> <span class="status">'+(d.online?'在线':'离线')+'</span></div><div class="device-info">IP: '+d.ip+' | MAC: '+d.mac+(d.owner?' | '+d.owner:'')+'</div></div>').join('') +
+          '<div class="home-section"><h2>'+home+' ('+devs.filter(d=>d.online).length+' 在线)</h2><div class="device-list">' +
+          devs.map(d => '<div class="device-card '+(d.online?'':'offline')+' '+(d.known?'':'unknown')+'"><div class="device-header"><span class="device-name">'+(d.name||d.deviceType||'未知设备')+(d.deviceType && d.name?' ('+d.deviceType+')':'')+'</span> <span class="status">'+(d.online?'在线':'离线')+'</span></div><div class="device-info">IP: '+d.ip+' | MAC: '+d.mac+(d.owner?' | '+d.owner:'')+'</div></div>').join('') +
           '</div></div>'
         ).join('');
       });
