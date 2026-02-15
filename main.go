@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -152,14 +153,17 @@ func scanNetwork(subnetStr string) []Device {
 	
 	// 并发ping
 	ch := make(chan Device, 254)
+	var wg sync.WaitGroup
 	concurrency := 50
 	sem := make(chan struct{}, concurrency)
 	
 	for i := 1; i <= 254; i++ {
+		wg.Add(1)
 		ip := fmt.Sprintf("%s.%d", base, i)
 		go func(ip string) {
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			defer wg.Done()
+			<-sem
+			defer func() { sem <- struct{}{} }()
 			
 			var cmd *exec.Cmd
 			if runtime.GOOS == "darwin" {
@@ -178,20 +182,37 @@ func scanNetwork(subnetStr string) []Device {
 				fmt.Sscanf(arpStr, "%s %s %s", &mac, &mac, &mac)
 				if mac != "" && !strings.Contains(mac, "ff:ff:ff:ff:ff:ff") {
 					mac = strings.ToUpper(strings.ReplaceAll(mac, ":", "-"))
-					ch <- Device{MAC: mac, IP: ip}
+					select {
+					case ch <- Device{MAC: mac, IP: ip}:
+					default:
+					}
 				}
 			}
 		}(ip)
+		if i%concurrency == 0 {
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 	
-	time.Sleep(2 * time.Second)
-	close(ch)
+	// 等待所有goroutine完成
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
 	
-	for dev := range ch {
-		devices = append(devices, dev)
+	// 等待channel关闭，最多3秒
+	timeout := time.After(3 * time.Second)
+	for {
+		select {
+		case dev, ok := <-ch:
+			if !ok {
+				return devices
+			}
+			devices = append(devices, dev)
+		case <-timeout:
+			return devices
+		}
 	}
-	
-	return devices
 }
 
 // 上报中央服务器
