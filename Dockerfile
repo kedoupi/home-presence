@@ -1,15 +1,21 @@
-FROM node:18-alpine
+FROM golang:1.24-alpine AS builder
 
-# 安装 arp-scan
-RUN apk add --no-cache arp-scan
+RUN apk add --no-cache git
 
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install --production
-
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /home-presence .
 
-EXPOSE 3000
+FROM alpine:3.21
 
-CMD ["node", "src/server/index.js"]
+RUN apk add --no-cache net-tools samba-client
+
+COPY --from=builder /home-presence /usr/local/bin/home-presence
+
+VOLUME /data
+EXPOSE 8080
+
+ENTRYPOINT ["home-presence"]
+CMD ["-role", "both", "-home", "家庭A", "-port", "8080"]

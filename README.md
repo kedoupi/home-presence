@@ -11,9 +11,11 @@
 - **Web 管理界面** — 支持 Dark Mode 的响应式 UI，设备图标 + 厂商/类别标签，可编辑设备信息
 - **单二进制文件** — Go 编译，OUI 数据库和 Web UI 内嵌，无运行时依赖
 
-## 快速开始
+## 安装
 
-### 从源码构建
+### 方式 1：从源码构建
+
+**前置条件：** Go 1.24+
 
 ```bash
 git clone https://github.com/kedoupi/home-presence.git
@@ -21,14 +23,77 @@ cd home-presence
 go build -o home-presence .
 ```
 
-### 运行
+**运行（需要 root 权限用于网络扫描）：**
 
 ```bash
-# 单机模式（扫描器 + 服务端）
-./home-presence -role both -home 家庭A -port 8080
+sudo ./home-presence -role both -home 家庭A -port 8080
 ```
 
 打开 http://localhost:8080 查看设备状态。
+
+**可选系统依赖（增强扫描能力）：**
+
+| 依赖 | 用途 | 安装方式 |
+|------|------|---------|
+| `nmblookup` | NetBIOS 名称发现 | macOS: `brew install samba` / Ubuntu: `sudo apt install samba-client` |
+
+> 不安装 nmblookup 不影响核心功能，仅跳过 NetBIOS 名称查询。
+
+### 方式 2：Docker
+
+```bash
+git clone https://github.com/kedoupi/home-presence.git
+cd home-presence
+docker compose up -d
+```
+
+> 必须使用 `network_mode: host`，否则无法扫描宿主机局域网。
+
+### 方式 3：Docker 手动运行
+
+```bash
+docker build -t home-presence .
+docker run -d --network host -v ./data:/data home-presence \
+  -role both -home 家庭A -port 8080
+```
+
+### 方式 4：交叉编译部署到远程机器
+
+```bash
+# 编译 Linux ARM64（树莓派等）
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o home-presence .
+
+# 编译 Linux AMD64（NAS/服务器）
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o home-presence .
+
+# 拷贝到目标机器
+scp home-presence user@192.168.1.100:~/
+ssh user@192.168.1.100 "sudo ~/home-presence -role scanner -home 家庭B -central http://10.8.0.2:8080"
+```
+
+### 开机自启（systemd）
+
+```bash
+sudo tee /etc/systemd/system/home-presence.service << 'EOF'
+[Unit]
+Description=Home Presence Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/home-presence -role both -home 家庭A -port 8080
+WorkingDirectory=/opt/home-presence
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo cp home-presence /usr/local/bin/
+sudo mkdir -p /opt/home-presence/data
+sudo systemctl enable --now home-presence
+```
 
 ## 架构
 
