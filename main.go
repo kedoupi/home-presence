@@ -260,6 +260,51 @@ func getLocalIP() string {
 
 // --- Scanner ---
 
+// pingSweep sends concurrent TCP probes to all IPs in the subnet,
+// triggering ARP resolution so that `arp -a` can discover them.
+func pingSweep(subnetStr string) {
+	_, ipNet, err := net.ParseCIDR(subnetStr)
+	if err != nil {
+		log.Printf("Invalid subnet for ping sweep: %s", subnetStr)
+		return
+	}
+
+	baseIP := ipNet.IP.Mask(ipNet.Mask).To4()
+	if baseIP == nil {
+		return
+	}
+
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 100) // 100 concurrent probes
+
+	ip := make(net.IP, 4)
+	copy(ip, baseIP)
+	for ; ipNet.Contains(ip); incIP(ip) {
+		target := ip.String()
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(t string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			// TCP SYN to port 80 triggers ARP resolution even if port is closed
+			conn, err := net.DialTimeout("tcp", net.JoinHostPort(t, "80"), 300*time.Millisecond)
+			if err == nil {
+				conn.Close()
+			}
+		}(target)
+	}
+	wg.Wait()
+}
+
+func incIP(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
+
 func parseArpTable() []Device {
 	var devices []Device
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -315,32 +360,30 @@ func scanNetBIOS(ips []string) map[string]string {
 	return result
 }
 
-func scanNetwork() []Device {
-	devChan := make(chan []Device, 1)
-	go func() {
-		devChan <- parseArpTable()
-	}()
-	select {
-	case devices := <-devChan:
-		var ips []string
-		for _, d := range devices {
-			if d.Name == "" {
-				ips = append(ips, d.IP)
-			}
+func scanNetwork(subnetStr string) []Device {
+	// Step 1: Ping sweep to populate ARP table
+	log.Printf("Ping sweep %s ...", subnetStr)
+	pingSweep(subnetStr)
+
+	// Step 2: Read ARP table
+	devices := parseArpTable()
+
+	// Step 3: NetBIOS lookup for unnamed devices
+	var ips []string
+	for _, d := range devices {
+		if d.Name == "" {
+			ips = append(ips, d.IP)
 		}
-		if len(ips) > 0 {
-			nbNames := scanNetBIOS(ips)
-			for i := range devices {
-				if name, ok := nbNames[devices[i].IP]; ok && devices[i].Name == "" {
-					devices[i].Name = name
-				}
-			}
-		}
-		return devices
-	case <-time.After(5 * time.Second):
-		log.Println("ARP table read timeout")
-		return nil
 	}
+	if len(ips) > 0 {
+		nbNames := scanNetBIOS(ips)
+		for i := range devices {
+			if name, ok := nbNames[devices[i].IP]; ok && devices[i].Name == "" {
+				devices[i].Name = name
+			}
+		}
+	}
+	return devices
 }
 
 func reportToCentral(devices []Device) {
@@ -382,7 +425,7 @@ func scanLoop(ctx context.Context) {
 
 	log.Printf("Scanner started: home=%s subnet=%s interval=%dms", *homeName, subnetStr, *interval)
 
-	runScan()
+	runScan(subnetStr)
 
 	ticker := time.NewTicker(time.Duration(*interval) * time.Millisecond)
 	defer ticker.Stop()
@@ -391,7 +434,7 @@ func scanLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			runScan()
+			runScan(subnetStr)
 		}
 	}
 }
@@ -406,10 +449,10 @@ func markAllOffline(home string) {
 	}
 }
 
-func runScan() {
+func runScan(subnetStr string) {
 	log.Printf("Scanning %s...", *homeName)
 
-	devices := scanNetwork()
+	devices := scanNetwork(subnetStr)
 	log.Printf("Found %d devices", len(devices))
 
 	markAllOffline(*homeName)
