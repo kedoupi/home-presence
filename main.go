@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"regexp"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -180,33 +178,12 @@ func getLocalNetwork() (string, string) {
 func parseArpTable() []Device {
 	var devices []Device
 	
-	var output []byte
-	var err error
-	
-	// 设置超时
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	
-	done := make(chan struct{})
-	
-	go func() {
-		if runtime.GOOS == "darwin" {
-			output, err = exec.Command("/usr/sbin/arp", "-a").Output()
-		} else {
-			output, err = exec.Command("arp", "-a").Output()
-		}
-		close(done)
-	}()
-	
-	select {
-	case <-done:
-		// 正常完成
-	case <-ctx.Done():
-		fmt.Println("   ⚠️ ARP表读取超时")
-		return devices
+	output, _ := exec.Command("/usr/sbin/arp", "-a").Output()
+	if len(output) == 0 {
+		output, _ = exec.Command("arp", "-a").Output()
 	}
 	
-	if err != nil {
+	if len(output) == 0 {
 		return devices
 	}
 	
