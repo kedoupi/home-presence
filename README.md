@@ -5,10 +5,11 @@
 ## 功能特性
 
 - **多家庭支持** — 服务端/客户端架构，每个家庭部署一个扫描节点
-- **设备识别** — 通过 MAC 地址 OUI 前缀自动识别设备类型（Apple/Samsung 等）
-- **NetBIOS 名称发现** — 自动获取局域网设备的 NetBIOS 名称
-- **Web 管理界面** — 支持 Dark Mode 的响应式 UI，可编辑设备名称和归属人
-- **单二进制文件** — Go 编译，无运行时依赖
+- **精准设备识别** — 多信号融合检测：OUI 厂商库（38,899 厂商）+ mDNS 服务发现 + DNS PTR + Hostname 启发式
+- **设备分类** — 自动识别手机/电脑/电视/音箱/打印机等 12 种设备类别，支持手动覆盖
+- **NetBIOS 名称发现** — 并发获取局域网设备的 NetBIOS 名称
+- **Web 管理界面** — 支持 Dark Mode 的响应式 UI，设备图标 + 厂商/类别标签，可编辑设备信息
+- **单二进制文件** — Go 编译，OUI 数据库和 Web UI 内嵌，无运行时依赖
 
 ## 快速开始
 
@@ -87,15 +88,23 @@ curl http://localhost:8080/api/devices
 # 更新设备信息（MAC 使用 - 分隔大写格式）
 curl -X PUT http://localhost:8080/api/devices/AA-BB-CC-DD-EE-FF \
   -H "Content-Type: application/json" \
-  -d '{"name":"iPhone 15","owner":"张三"}'
+  -d '{"name":"iPhone 15","owner":"张三","category":"phone"}'
+
+# 可选 category 值：phone, laptop, desktop, tablet, tv, speaker, watch, printer, router, nas, iot, unknown
+# 留空则恢复自动检测
 ```
 
 ## 扫描原理
 
-1. **ARP 表** — 读取系统 ARP 缓存，获取局域网内活跃设备的 IP 和 MAC
-2. **NetBIOS 查询** — 对未命名设备调用 `nmblookup` 获取 NetBIOS 名称
-3. **OUI 识别** — 通过 MAC 前缀识别设备厂商/类型
-4. **自动检测** — 自动识别本机所在的局域网网段
+1. **Ping Sweep** — UDP 探测子网内所有 IP，触发 ARP 解析
+2. **ARP 表** — 读取系统 ARP 缓存，获取局域网内活跃设备的 IP 和 MAC
+3. **并发探测** — 同时执行以下三种探测：
+   - **NetBIOS 查询** — 调用 `nmblookup` 获取设备名称（10 并发，3s 超时）
+   - **mDNS 服务发现** — 浏览 10 种服务类型（打印机、AirPlay、Chromecast 等），5s 超时
+   - **DNS PTR 反向查找** — 解析 IP 对应的主机名（20 并发，10 分钟缓存）
+4. **OUI 厂商识别** — 通过 MAC 前缀匹配 IEEE OUI 数据库（38,899 厂商）
+5. **Hostname 启发式** — 30 种正则模式匹配设备名称（iPhone/MacBook/Galaxy 等）
+6. **优先级融合** — 按信号优先级（mDNS > hostname > vendor hint）确定最终设备类别
 
 ## 数据存储
 
