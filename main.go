@@ -16,7 +16,7 @@ var indexHTML []byte
 // Command-line flags
 var (
 	port     = flag.Int("port", 8080, "HTTP server port")
-	homeName = flag.String("home", "家庭A", "Home name")
+	homeName = flag.String("home", "Home", "Home name")
 	subnet   = flag.String("subnet", "", "Subnet to scan (auto-detect if empty)")
 	central  = flag.String("central", "", "Central server URL (scanner mode)")
 	interval = flag.Int("interval", 30000, "Scan interval in milliseconds")

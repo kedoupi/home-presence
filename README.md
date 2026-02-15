@@ -128,7 +128,7 @@ sudo systemctl enable --now home-presence
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `-port` | 8080 | HTTP 服务端口 |
-| `-home` | 家庭A | 家庭名称 |
+| `-home` | Home | 家庭名称 |
 | `-role` | both | 运行角色：`both` / `server` / `scanner` |
 | `-central` | - | 服务端地址（scanner 模式必填） |
 | `-subnet` | 自动检测 | 扫描的网段（如 `192.168.1.0/24`） |
