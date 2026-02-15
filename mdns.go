@@ -76,33 +76,42 @@ func scanMDNS() {
 		svc := service
 		svcInfo := info
 
-		// Consumer: reads discovered entries
+		// Consumer: reads discovered entries until context is cancelled.
+		// We do NOT close the entries channel because zeroconf's internal
+		// mainloop goroutine may still send after Browse returns, causing
+		// "send on closed channel" panic.
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for entry := range entries {
-				for _, ip := range entry.AddrIPv4 {
-					ipStr := ip.String()
-					hostname := strings.TrimSuffix(entry.HostName, ".")
-					ce := mdnsCacheEntry{
-						IP:       ipStr,
-						Category: svcInfo.Category,
-						Priority: svcInfo.Priority,
-						Hostname: hostname,
-						Expires:  time.Now().Add(5 * time.Minute),
+			for {
+				select {
+				case entry := <-entries:
+					if entry == nil {
+						return
 					}
-					resultsMu.Lock()
-					results[ipStr] = append(results[ipStr], ce)
-					resultsMu.Unlock()
+					for _, ip := range entry.AddrIPv4 {
+						ipStr := ip.String()
+						hostname := strings.TrimSuffix(entry.HostName, ".")
+						ce := mdnsCacheEntry{
+							IP:       ipStr,
+							Category: svcInfo.Category,
+							Priority: svcInfo.Priority,
+							Hostname: hostname,
+							Expires:  time.Now().Add(5 * time.Minute),
+						}
+						resultsMu.Lock()
+						results[ipStr] = append(results[ipStr], ce)
+						resultsMu.Unlock()
+					}
+				case <-ctx.Done():
+					return
 				}
 			}
 		}()
 
 		// Producer: Browse blocks until ctx done.
-		// Explicitly close channel after Browse returns as a safety net.
 		go func() {
 			_ = resolver.Browse(ctx, svc, "local.", entries)
-			close(entries)
 		}()
 	}
 
