@@ -280,18 +280,21 @@
       opacity: 0.8;
     }
 
-    /* Status dot */
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--offline);
+    /* Device icon */
+    .device-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      background: var(--primary-light);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
     }
-    .status-dot.online {
-      background: var(--success);
-      box-shadow: 0 0 0 3px var(--success-pulse);
-      animation: pulse-ring 2s ease-out infinite;
+    .device-icon svg {
+      width: 18px;
+      height: 18px;
     }
 
     @keyframes pulse-ring {
@@ -325,6 +328,37 @@
     .device-meta span {
       white-space: nowrap;
     }
+    .device-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .device-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .device-tag.vendor {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    .device-tag.category {
+      background: rgba(139, 92, 246, 0.1);
+      color: #7c3aed;
+    }
+    [data-theme="dark"] .device-tag.category {
+      background: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+    }
+    .device-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
     .device-badge {
       font-size: 11px;
       padding: 2px 8px;
@@ -339,6 +373,19 @@
     .device-badge.offline {
       background: var(--bg-badge-off);
       color: var(--text-badge-off);
+    }
+    .status-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-indicator.online {
+      background: var(--success);
+      box-shadow: 0 0 0 2px var(--success-pulse);
+    }
+    .status-indicator.offline {
+      background: var(--offline);
     }
 
     /* Modal */
@@ -412,7 +459,7 @@
       color: var(--text-secondary);
       margin-bottom: 6px;
     }
-    .form-input {
+    .form-input, .form-select {
       width: 100%;
       padding: 9px 12px;
       border: 1px solid var(--border-input);
@@ -423,7 +470,7 @@
       font-family: inherit;
       transition: border-color var(--transition);
     }
-    .form-input:focus {
+    .form-input:focus, .form-select:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 3px var(--primary-light);
@@ -591,6 +638,10 @@
           <label class="form-label" for="editMac">MAC</label>
           <input class="form-input" type="text" id="editMac" readonly>
         </div>
+        <div class="form-group" id="vendorGroup" style="display:none">
+          <label class="form-label" for="editVendor">Vendor</label>
+          <input class="form-input" type="text" id="editVendor" readonly>
+        </div>
         <div class="form-group">
           <label class="form-label" for="editName">Device Name</label>
           <input class="form-input" type="text" id="editName" placeholder="e.g. Living Room Speaker">
@@ -600,6 +651,25 @@
           <label class="form-label" for="editOwner">Owner</label>
           <input class="form-input" type="text" id="editOwner" placeholder="e.g. John">
           <div class="form-hint">Who does this device belong to?</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="editCategory">Category</label>
+          <select class="form-select" id="editCategory">
+            <option value="">Auto Detect</option>
+            <option value="phone">Phone</option>
+            <option value="laptop">Laptop</option>
+            <option value="desktop">Desktop</option>
+            <option value="tablet">Tablet</option>
+            <option value="tv">TV</option>
+            <option value="speaker">Speaker</option>
+            <option value="watch">Watch</option>
+            <option value="printer">Printer</option>
+            <option value="router">Router</option>
+            <option value="nas">NAS</option>
+            <option value="iot">IoT</option>
+            <option value="unknown">Unknown</option>
+          </select>
+          <div class="form-hint">Override auto-detected device category</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -619,11 +689,41 @@
     let refreshTimer = null;
     const REFRESH_INTERVAL = 30000;
 
+    // --- Category icons (inline SVG) ---
+    var categoryIcons = {
+      phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
+      laptop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8H4z"/><path d="M2 18h20"/></svg>',
+      desktop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+      tablet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
+      tv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/></svg>',
+      speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
+      watch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><polyline points="12 9 12 12 13.5 13.5"/><path d="M16.51 17.35l.35 3.83a2 2 0 0 1-2 2.15H9.14a2 2 0 0 1-2-2.15l.35-3.83"/><path d="M7.49 6.65l-.35-3.83A2 2 0 0 1 9.14.67h5.72a2 2 0 0 1 2 2.15l-.35 3.83"/></svg>',
+      printer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+      router: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>',
+      nas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>',
+      iot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>',
+      unknown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5"/></svg>'
+    };
+
+    var categoryLabels = {
+      phone: 'Phone', laptop: 'Laptop', desktop: 'Desktop', tablet: 'Tablet',
+      tv: 'TV', speaker: 'Speaker', watch: 'Watch', printer: 'Printer',
+      router: 'Router', nas: 'NAS', iot: 'IoT', unknown: 'Unknown'
+    };
+
+    function getCategoryIcon(category) {
+      return categoryIcons[category] || categoryIcons.unknown;
+    }
+
+    function getCategoryLabel(category) {
+      return categoryLabels[category] || '';
+    }
+
     // --- Theme ---
     function initTheme() {
-      const saved = localStorage.getItem('hp-theme');
-      const prefer = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const dark = saved ? saved === 'dark' : prefer;
+      var saved = localStorage.getItem('hp-theme');
+      var prefer = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var dark = saved ? saved === 'dark' : prefer;
       setTheme(dark);
     }
     function setTheme(dark) {
@@ -633,7 +733,7 @@
       localStorage.setItem('hp-theme', dark ? 'dark' : 'light');
     }
     document.getElementById('themeToggle').addEventListener('click', function() {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       setTheme(!isDark);
     });
 
@@ -728,11 +828,23 @@
       } else {
         html += '<div class="device-grid">';
         sorted.forEach(function(d) {
-          var displayName = d.name || d.deviceType || 'Unknown Device';
+          var displayName = d.name || d.hostname || d.deviceType || 'Unknown Device';
           var statusClass = d.online ? 'online' : 'offline';
+          var cat = d.category || 'unknown';
+          var icon = getCategoryIcon(cat);
+
+          // Build tags
+          var tags = '';
+          if (d.vendor) {
+            tags += '<span class="device-tag vendor">' + escapeHtml(d.vendor) + '</span>';
+          }
+          if (d.category && d.category !== 'unknown') {
+            tags += '<span class="device-tag category">' + escapeHtml(getCategoryLabel(d.category)) + '</span>';
+          }
+
           html +=
             '<div class="device-card ' + (d.online ? '' : 'offline') + '" onclick="editDevice(\'' + escapeAttr(d.mac) + '\')" tabindex="0" role="button">' +
-              '<div class="status-dot ' + statusClass + '"></div>' +
+              '<div class="device-icon">' + icon + '</div>' +
               '<div class="device-info">' +
                 '<div class="device-name">' + escapeHtml(displayName) + '</div>' +
                 '<div class="device-meta">' +
@@ -740,8 +852,11 @@
                   '<span>' + escapeHtml(d.mac) + '</span>' +
                   (d.owner ? '<span>' + escapeHtml(d.owner) + '</span>' : '') +
                 '</div>' +
+                (tags ? '<div class="device-tags">' + tags + '</div>' : '') +
               '</div>' +
-              '<span class="device-badge ' + statusClass + '">' + (d.online ? 'Online' : 'Offline') + '</span>' +
+              '<div class="device-right">' +
+                '<span class="device-badge ' + statusClass + '">' + (d.online ? 'Online' : 'Offline') + '</span>' +
+              '</div>' +
             '</div>';
         });
         html += '</div>';
@@ -767,6 +882,24 @@
       document.getElementById('editMac').value = dev.mac;
       document.getElementById('editName').value = dev.name || '';
       document.getElementById('editOwner').value = dev.owner || '';
+
+      // Vendor field
+      var vendorGroup = document.getElementById('vendorGroup');
+      if (dev.vendor) {
+        document.getElementById('editVendor').value = dev.vendor;
+        vendorGroup.style.display = 'block';
+      } else {
+        vendorGroup.style.display = 'none';
+      }
+
+      // Category select
+      var catSelect = document.getElementById('editCategory');
+      if (dev.manualCategory && dev.category) {
+        catSelect.value = dev.category;
+      } else {
+        catSelect.value = '';
+      }
+
       document.getElementById('modalOverlay').classList.add('show');
       document.getElementById('editName').focus();
     }
@@ -777,10 +910,17 @@
     function saveDevice() {
       var name = document.getElementById('editName').value.trim();
       var owner = document.getElementById('editOwner').value.trim();
+      var category = document.getElementById('editCategory').value;
+
+      var body = { name: name, owner: owner };
+      if (category) {
+        body.category = category;
+      }
+
       fetch('/api/devices/' + encodeURIComponent(editingMac), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, owner: owner })
+        body: JSON.stringify(body)
       })
         .then(function(r) {
           if (!r.ok) throw new Error('Save failed');
