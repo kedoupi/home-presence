@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Presence</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #f1f5f9;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8fafc;
+      --bg-input: #f8fafc;
+      --bg-badge: #dcfce7;
+      --bg-badge-off: #f1f5f9;
+      --bg-overlay: rgba(15, 23, 42, 0.5);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --text-badge: #166534;
+      --text-badge-off: #64748b;
+      --border: #e2e8f0;
+      --border-input: #cbd5e1;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-light: #dbeafe;
+      --success: #22c55e;
+      --success-pulse: rgba(34, 197, 94, 0.4);
+      --offline: #94a3b8;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-full: 9999px;
+      --transition: 200ms ease;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-hover: #334155;
+      --bg-input: #0f172a;
+      --bg-badge: rgba(34, 197, 94, 0.15);
+      --bg-badge-off: rgba(148, 163, 184, 0.1);
+      --bg-overlay: rgba(0, 0, 0, 0.6);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --text-badge: #4ade80;
+      --text-badge-off: #64748b;
+      --border: #334155;
+      --border-input: #475569;
+      --primary-light: rgba(59, 130, 246, 0.15);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* Header */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      backdrop-filter: blur(8px);
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .header-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 28px;
+      height: 28px;
+      color: var(--primary);
+    }
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .refresh-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse-dot 2s infinite;
+    }
+    .refresh-text {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .theme-toggle {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background var(--transition), color var(--transition);
+    }
+    .theme-toggle:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+    .theme-toggle:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    /* Main */
+    .main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
+    }
+
+    /* Back button */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-bottom: 20px;
+    }
+    .back-btn:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    /* Home cards */
+    .home-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .home-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .home-card:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+    .home-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--primary);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .home-card:hover::before {
+      opacity: 1;
+    }
+    .home-card-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--primary-light);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+    .home-card-name {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .home-card-stats {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .home-card-count {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1;
+    }
+    .home-card-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .section-badge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      background: var(--bg-badge);
+      color: var(--text-badge);
+      font-weight: 500;
+    }
+
+    /* Device cards */
+    .device-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .device-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+    }
+    .device-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--primary);
+    }
+    .device-card.offline {
+      opacity: 0.55;
+    }
+    .device-card.offline:hover {
+      opacity: 0.8;
+    }
+
+    /* Status dot */
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--offline);
+      flex-shrink: 0;
+    }
+    .status-dot.online {
+      background: var(--success);
+      box-shadow: 0 0 0 3px var(--success-pulse);
+      animation: pulse-ring 2s ease-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 var(--success-pulse); }
+      70% { box-shadow: 0 0 0 6px transparent; }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .device-info {
+      min-width: 0;
+    }
+    .device-name {
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .device-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .device-meta span {
+      white-space: nowrap;
+    }
+    .device-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .device-badge.online {
+      background: var(--bg-badge);
+      color: var(--text-badge);
+    }
+    .device-badge.offline {
+      background: var(--bg-badge-off);
+      color: var(--text-badge-off);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg-overlay);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fade-in 150ms ease;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .modal {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 400px;
+      box-shadow: var(--shadow-lg);
+      animation: modal-in 200ms ease;
+    }
+    @keyframes modal-in {
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      padding: 20px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+    }
+    .modal-close:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+    .modal-body {
+      padding: 20px 24px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border-input);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color var(--transition);
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+    .form-input[readonly] {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .modal-footer {
+      padding: 0 24px 20px;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .btn {
+      padding: 8px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      font-family: inherit;
+    }
+    .btn:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--border) 25%, var(--bg-card-hover) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: var(--radius-sm);
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      padding: 10px 20px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      transition: transform 300ms ease;
+      z-index: 200;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .home-grid {
+        grid-template-columns: 1fr;
+      }
+      .device-card {
+        padding: 12px 14px;
+        gap: 12px;
+      }
+      .device-meta {
+        gap: 6px;
+      }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-left">
+        <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12l-2 0l9 -9l9 9l-2 0"/>
+          <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/>
+          <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/>
+        </svg>
+        <span class="header-title">Home Presence</span>
+      </div>
+      <div class="header-right">
+        <div class="refresh-dot" id="refreshDot"></div>
+        <span class="refresh-text" id="refreshText">--</span>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <svg id="iconSun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg id="iconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div id="content"></div>
+  </main>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" role="dialog" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Edit Device</h3>
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="editMac">MAC</label>
+          <input class="form-input" type="text" id="editMac" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="editName">Device Name</label>
+          <input class="form-input" type="text" id="editName" placeholder="e.g. Living Room Speaker">
+          <div class="form-hint">A friendly name for this device</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="editOwner">Owner</label>
+          <input class="form-input" type="text" id="editOwner" placeholder="e.g. John">
+          <div class="form-hint">Who does this device belong to?</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveDevice()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let allDevices = [];
+    let allStats = {};
+    let currentHome = '';
+    let editingMac = '';
+    let refreshTimer = null;
+    const REFRESH_INTERVAL = 30000;
+
+    // --- Theme ---
+    function initTheme() {
+      const saved = localStorage.getItem('hp-theme');
+      const prefer = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const dark = saved ? saved === 'dark' : prefer;
+      setTheme(dark);
+    }
+    function setTheme(dark) {
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      document.getElementById('iconSun').style.display = dark ? 'none' : 'block';
+      document.getElementById('iconMoon').style.display = dark ? 'block' : 'none';
+      localStorage.setItem('hp-theme', dark ? 'dark' : 'light');
+    }
+    document.getElementById('themeToggle').addEventListener('click', function() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      setTheme(!isDark);
+    });
+
+    // --- Data ---
+    function loadData() {
+      fetch('/api/devices')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          allDevices = data.devices || [];
+          allStats = data.stats || {};
+          render();
+          updateRefreshTime();
+        })
+        .catch(function() {
+          showToast('Failed to load data');
+        });
+    }
+
+    function updateRefreshTime() {
+      var now = new Date();
+      var h = now.getHours();
+      var m = String(now.getMinutes()).padStart(2, '0');
+      var s = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById('refreshText').textContent = h + ':' + m + ':' + s;
+    }
+
+    function startAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(loadData, REFRESH_INTERVAL);
+    }
+
+    // --- Render ---
+    function render() {
+      if (currentHome) {
+        renderDevices();
+      } else {
+        renderHomes();
+      }
+    }
+
+    function renderHomes() {
+      var homes = Object.keys(allStats);
+      if (homes.length === 0) {
+        document.getElementById('content').innerHTML =
+          '<div class="empty-state">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>' +
+            '<p>No homes found. Waiting for scanner data...</p>' +
+          '</div>';
+        return;
+      }
+      var html = '<div class="home-grid">';
+      homes.forEach(function(name) {
+        var s = allStats[name];
+        html +=
+          '<div class="home-card" onclick="showHome(\'' + escapeAttr(name) + '\')" tabindex="0" role="button" aria-label="' + escapeAttr(name) + '">' +
+            '<div class="home-card-icon">' +
+              '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>' +
+            '</div>' +
+            '<div class="home-card-name">' + escapeHtml(name) + '</div>' +
+            '<div class="home-card-stats">' +
+              '<span class="home-card-count">' + s.online + '</span>' +
+              '<span class="home-card-label">online / ' + s.total + ' devices</span>' +
+            '</div>' +
+          '</div>';
+      });
+      html += '</div>';
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function renderDevices() {
+      var devs = allDevices.filter(function(d) { return d.home === currentHome; });
+      var onlineDevs = devs.filter(function(d) { return d.online; });
+      var offlineDevs = devs.filter(function(d) { return !d.online; });
+      var sorted = onlineDevs.concat(offlineDevs);
+
+      var html =
+        '<button class="back-btn" onclick="goHome()">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>' +
+          'All Homes' +
+        '</button>' +
+        '<div class="section-header">' +
+          '<h2 class="section-title">' + escapeHtml(currentHome) + '</h2>' +
+          '<span class="section-badge">' + onlineDevs.length + ' / ' + devs.length + ' online</span>' +
+        '</div>';
+
+      if (sorted.length === 0) {
+        html +=
+          '<div class="empty-state">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>' +
+            '<p>No devices found in this home</p>' +
+          '</div>';
+      } else {
+        html += '<div class="device-grid">';
+        sorted.forEach(function(d) {
+          var displayName = d.name || d.deviceType || 'Unknown Device';
+          var statusClass = d.online ? 'online' : 'offline';
+          html +=
+            '<div class="device-card ' + (d.online ? '' : 'offline') + '" onclick="editDevice(\'' + escapeAttr(d.mac) + '\')" tabindex="0" role="button">' +
+              '<div class="status-dot ' + statusClass + '"></div>' +
+              '<div class="device-info">' +
+                '<div class="device-name">' + escapeHtml(displayName) + '</div>' +
+                '<div class="device-meta">' +
+                  '<span>' + escapeHtml(d.ip) + '</span>' +
+                  '<span>' + escapeHtml(d.mac) + '</span>' +
+                  (d.owner ? '<span>' + escapeHtml(d.owner) + '</span>' : '') +
+                '</div>' +
+              '</div>' +
+              '<span class="device-badge ' + statusClass + '">' + (d.online ? 'Online' : 'Offline') + '</span>' +
+            '</div>';
+        });
+        html += '</div>';
+      }
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // --- Navigation ---
+    function showHome(name) {
+      currentHome = name;
+      render();
+    }
+    function goHome() {
+      currentHome = '';
+      render();
+    }
+
+    // --- Modal ---
+    function editDevice(mac) {
+      var dev = allDevices.find(function(d) { return d.mac === mac; });
+      if (!dev) return;
+      editingMac = mac;
+      document.getElementById('editMac').value = dev.mac;
+      document.getElementById('editName').value = dev.name || '';
+      document.getElementById('editOwner').value = dev.owner || '';
+      document.getElementById('modalOverlay').classList.add('show');
+      document.getElementById('editName').focus();
+    }
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('show');
+      editingMac = '';
+    }
+    function saveDevice() {
+      var name = document.getElementById('editName').value.trim();
+      var owner = document.getElementById('editOwner').value.trim();
+      fetch('/api/devices/' + encodeURIComponent(editingMac), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, owner: owner })
+      })
+        .then(function(r) {
+          if (!r.ok) throw new Error('Save failed');
+          return r.json();
+        })
+        .then(function() {
+          closeModal();
+          showToast('Device updated');
+          loadData();
+        })
+        .catch(function() {
+          showToast('Failed to save');
+        });
+    }
+
+    // --- Toast ---
+    function showToast(msg) {
+      var el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(function() { el.classList.remove('show'); }, 2500);
+    }
+
+    // --- Escape ---
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function escapeAttr(str) {
+      return escapeHtml(str).replace(/'/g, '&#39;');
+    }
+
+    // --- Keyboard ---
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal();
+    });
+    document.getElementById('modalOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    // --- Init ---
+    initTheme();
+    loadData();
+    startAutoRefresh();
+  </script>
+</body>
+</html>

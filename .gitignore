@@ -1,2 +1,5 @@
 output.log
 data/
+home-presence
+config.yaml
+node_modules/

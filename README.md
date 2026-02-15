@@ -4,118 +4,102 @@
 
 ## 功能特性
 
-- 🌐 **多家庭支持** — 同时监控多个地点的局域网设备
-- 📱 **设备识别** — MAC 地址白名单，识别是谁的设备
-- 🔔 **状态推送** — 设备上线/离线时 Telegram 推送
-- 📊 **Web 管理界面** — 可视化查看各家庭设备、编辑映射
-- ⚡ **单二进制文件** — 无需安装任何依赖
+- **多家庭支持** — 服务端/客户端架构，每个家庭部署一个扫描节点
+- **设备识别** — 通过 MAC 地址 OUI 前缀自动识别设备类型（Apple/Samsung 等）
+- **NetBIOS 名称发现** — 自动获取局域网设备的 NetBIOS 名称
+- **Web 管理界面** — 支持 Dark Mode 的响应式 UI，可编辑设备名称和归属人
+- **单二进制文件** — Go 编译，无运行时依赖
 
 ## 快速开始
 
-### 1. 下载二进制
+### 从源码构建
 
 ```bash
-# macOS ARM (Apple Silicon)
-curl -L -o home-presence https://github.com/kedoupi/home-presence/releases/download/v1.0.0/home-presence
-
-# macOS Intel
-curl -L -o home-presence https://github.com/kedoupi/home-presence/releases/download/v1.0.0/home-presence
-
-# Linux
-curl -L -o home-presence https://github.com/kedoupi/home-presence/releases/download/v1.0.0/home-presence
+git clone https://github.com/kedoupi/home-presence.git
+cd home-presence
+go build -o home-presence .
 ```
 
-```bash
-chmod +x home-presence
-```
-
-### 2. 运行
+### 运行
 
 ```bash
-# 中央服务 + 扫描器（单台机器）
+# 单机模式（扫描器 + 服务端）
 ./home-presence -role both -home 家庭A -port 8080
 ```
-
-### 3. 访问 Web UI
 
 打开 http://localhost:8080 查看设备状态。
 
----
+## 架构
+
+采用服务端/客户端架构：每个家庭部署一个 **Scanner（客户端）**，扫描本地局域网设备后上报到 **Server（服务端）**。
+
+```
+家庭A (Scanner)  ──POST /api/report──▶  Server (Web UI + API)
+家庭B (Scanner)  ──POST /api/report──▶  Server
+```
+
+### 运行模式
+
+| 模式 | 说明 | 示例 |
+|------|------|------|
+| `server` | 仅服务端：Web UI + 接收上报 | `./home-presence -role server -port 8080` |
+| `scanner` | 仅客户端：扫描局域网，上报到服务端 | `./home-presence -role scanner -home 家庭B -central http://server:8080` |
+| `both` | 单机模式：同时运行服务端和扫描器 | `./home-presence -role both -home 家庭A -port 8080` |
+
+### 多家庭部署
+
+```bash
+# 机器 1：服务端（也扫描本地网络）
+./home-presence -role both -home 家庭A -port 8080
+
+# 机器 2：家庭 B 的扫描节点
+./home-presence -role scanner -home 家庭B -central http://10.8.0.2:8080
+
+# 机器 3：家庭 C 的扫描节点
+./home-presence -role scanner -home 家庭C -central http://10.8.0.2:8080
+```
 
 ## 命令行参数
 
-| 参数 | 缩写 | 默认值 | 说明 |
-|------|------|--------|------|
-| `-port` | - | 8080 | HTTP 服务端口 |
-| `-home` | - | 家庭A | 家庭名称 |
-| `-role` | - | both | 运行角色：both/server/scanner |
-| `-central` | - | - | 中央服务地址（scanner 模式使用） |
-| `-subnet` | - | 自动检测 | 扫描的网段 |
-| `-interval` | - | 30000 | 扫描间隔（毫秒） |
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `-port` | 8080 | HTTP 服务端口 |
+| `-home` | 家庭A | 家庭名称 |
+| `-role` | both | 运行角色：`both` / `server` / `scanner` |
+| `-central` | - | 服务端地址（scanner 模式必填） |
+| `-subnet` | 自动检测 | 扫描的网段（如 `192.168.1.0/24`） |
+| `-interval` | 30000 | 扫描间隔（毫秒） |
 
----
+## 设备管理
 
-## 多机器部署
-
-### 中央服务（家庭A）
-
-运行扫描器 + 中央服务 + Web UI：
-
-```bash
-./home-presence -role both -home 家庭A -port 8080
-```
-
-### 扫描器节点（家庭B）
-
-只运行扫描器，上报到中央服务：
-
-```bash
-./home-presence -role scanner -home 家庭B -central http://10.8.0.2:8080
-```
-
----
-
-## 设备映射
-
-### 方式一：Web UI 编辑
+### Web UI
 
 1. 打开 http://localhost:8080
-2. 点击未知设备
-3. 填写名称和所属人
+2. 点击家庭卡片进入设备列表
+3. 点击设备卡片编辑名称和归属人
 
-### 方式二：API
+### API
 
 ```bash
-# 获取所有设备
+# 获取所有设备和统计
 curl http://localhost:8080/api/devices
 
-# 更新设备信息
-curl -X PUT http://localhost:8080/api/devices/XX:XX:XX:XX:XX:XX \
+# 更新设备信息（MAC 使用 - 分隔大写格式）
+curl -X PUT http://localhost:8080/api/devices/AA-BB-CC-DD-EE-FF \
   -H "Content-Type: application/json" \
-  -d '{"name":"张老板 iPhone","owner":"张老板"}'
+  -d '{"name":"iPhone 15","owner":"张三"}'
 ```
-
----
 
 ## 扫描原理
 
-1. **ARP 表**：优先读取系统 ARP 表（最快）
-2. **Ping 扫描**：ARP 为空时，使用 ping 扫描整个网段
-3. **自动检测**：自动识别本机所在的局域网网段
-
----
-
-## Telegram 推送（可选）
-
-编辑 `data/devices.json` 添加 Telegram 配置，或通过 Web UI 界面配置。
-
----
+1. **ARP 表** — 读取系统 ARP 缓存，获取局域网内活跃设备的 IP 和 MAC
+2. **NetBIOS 查询** — 对未命名设备调用 `nmblookup` 获取 NetBIOS 名称
+3. **OUI 识别** — 通过 MAC 前缀识别设备厂商/类型
+4. **自动检测** — 自动识别本机所在的局域网网段
 
 ## 数据存储
 
-设备信息保存在 `data/devices.json`，程序退出时会自动保存。
-
----
+设备信息持久化在 `data/devices.json`，采用原子写入（写临时文件后 rename），程序收到 SIGINT/SIGTERM 时自动保存。
 
 ## License
 
