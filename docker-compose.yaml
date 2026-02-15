@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  home-presence:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    network_mode: host
+
+  # 扫描器（可选，在其他机器上运行）
+  scanner:
+    build: .
+    command: ["node", "src/scanner/index.js"]
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    environment:
+      - SCAN_SUBNET=10.8.0.0/24
+      - HOME_NAME=家庭B
+      - CENTRAL_URL=http://10.8.0.2:3000
+    restart: unless-stopped
+    network_mode: host

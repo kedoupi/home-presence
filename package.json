@@ -1,0 +1,19 @@
+{
+  "name": "home-presence",
+  "version": "1.0.0",
+  "description": "家庭局域网设备感知系统",
+  "scripts": {
+    "dev": "node src/server/index.js",
+    "scanner": "node src/scanner/index.js",
+    "dev:scanner": "SCAN_SUBNET=10.8.0.0/24 HOME_NAME=家庭A CENTRAL_URL=http://localhost:3000 npm run scanner"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "yaml": "^2.3.4",
+    "axios": "^1.6.2",
+    "better-sqlite3": "^9.2.2",
+    "arpscan": "^1.0.0",
+    "node-schedule": "^2.1.1",
+    "uuid": "^9.0.1"
+  }
+}
