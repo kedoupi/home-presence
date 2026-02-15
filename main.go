@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -182,10 +183,27 @@ func parseArpTable() []Device {
 	var output []byte
 	var err error
 	
-	if runtime.GOOS == "darwin" {
-		output, err = exec.Command("/usr/sbin/arp", "-a").Output()
-	} else {
-		output, err = exec.Command("arp", "-a").Output()
+	// 设置超时
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	
+	done := make(chan struct{})
+	
+	go func() {
+		if runtime.GOOS == "darwin" {
+			output, err = exec.Command("/usr/sbin/arp", "-a").Output()
+		} else {
+			output, err = exec.Command("arp", "-a").Output()
+		}
+		close(done)
+	}()
+	
+	select {
+	case <-done:
+		// 正常完成
+	case <-ctx.Done():
+		fmt.Println("   ⚠️ ARP表读取超时")
+		return devices
 	}
 	
 	if err != nil {
