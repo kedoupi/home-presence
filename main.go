@@ -212,7 +212,16 @@ func parseArpTable() []Device {
 			
 			// 过滤广播地址
 			if !strings.Contains(mac, "FF:FF:FF:FF:FF:FF") {
-				devices = append(devices, Device{MAC: mac, IP: ip})
+				dev := Device{MAC: mac, IP: ip, DeviceType: getDeviceType(mac)}
+				
+				// 尝试从设备历史中获取名称（如果之前手动设置过）
+				if saved, ok := deviceStore[mac]; ok && saved.Name != "" {
+					dev.Name = saved.Name
+					dev.Owner = saved.Owner
+					dev.Known = saved.Known
+				}
+				
+				devices = append(devices, dev)
 			}
 		}
 	}
