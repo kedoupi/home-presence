@@ -235,11 +235,36 @@ func getLocalNetwork() (string, string) {
 	return "", ""
 }
 
+func getLocalIP() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if !strings.HasPrefix(iface.Name, "en") && !strings.HasPrefix(iface.Name, "eth") {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if ok && ipNet.IP.To4() != nil && !ipNet.IP.IsLoopback() {
+				return ipNet.IP.String()
+			}
+		}
+	}
+	return ""
+}
+
 // --- Scanner ---
 
 func parseArpTable() []Device {
 	var devices []Device
-	output, err := exec.Command("sh", "-c", "timeout 2 /usr/sbin/arp -a 2>/dev/null || timeout 2 arp -a 2>/dev/null || echo ''").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "arp", "-a").Output()
 	if err != nil {
 		log.Printf("ARP command failed: %v", err)
 		return devices
@@ -498,6 +523,10 @@ func startServer(ctx context.Context) {
 	}()
 
 	log.Printf("Server started: http://localhost:%d", *port)
+	if localIP := getLocalIP(); localIP != "" {
+		log.Printf("Scanner connect command:")
+		log.Printf("  ./home-presence -role scanner -home <name> -central http://%s:%d", localIP, *port)
+	}
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)
 	}
