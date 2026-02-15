@@ -286,9 +286,10 @@ func pingSweep(subnetStr string) {
 		go func(t string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			// TCP SYN to port 80 triggers ARP resolution even if port is closed
-			conn, err := net.DialTimeout("tcp", net.JoinHostPort(t, "80"), 300*time.Millisecond)
+			// UDP probe triggers ARP resolution without needing a listening service
+			conn, err := net.DialTimeout("udp", net.JoinHostPort(t, "9"), 200*time.Millisecond)
 			if err == nil {
+				conn.Write([]byte{0})
 				conn.Close()
 			}
 		}(target)
@@ -307,9 +308,10 @@ func incIP(ip net.IP) {
 
 func parseArpTable() []Device {
 	var devices []Device
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, "arp", "-a").Output()
+	// -an: skip reverse DNS lookup (much faster with large ARP tables)
+	output, err := exec.CommandContext(ctx, "arp", "-an").Output()
 	if err != nil {
 		log.Printf("ARP command failed: %v", err)
 		return devices
